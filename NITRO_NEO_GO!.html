@@ -1,0 +1,1396 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>80s Synthwave Racing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Racing+Sans+One&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        overflow: hidden;
+        background: #000;
+      }
+      canvas.three {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #loading {
+        display: none;
+      }
+      #ui {
+        display: none !important;
+      }
+      #scoreDisplay {
+        position: absolute;
+        bottom: 24px;
+        left: 28px;
+        color: #fff;
+        font-family: "Orbitron", monospace;
+        font-size: 42px;
+        font-weight: 900;
+        pointer-events: none;
+        z-index: 10;
+        display: none;
+        letter-spacing: 2px;
+        text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+      }
+      #gameOver {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ff0000;
+        font-family: "Courier New", monospace;
+        font-size: 60px;
+        text-shadow: 0 0 20px #ff0000;
+        pointer-events: none;
+        z-index: 20;
+        text-align: center;
+        display: none;
+        background: rgba(0, 0, 0, 0.85);
+        padding: 40px;
+        border: 2px solid #ff0000;
+      }
+      #engineHud {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        align-items: flex-end;
+        gap: 8px;
+        z-index: 15;
+        pointer-events: none;
+        padding-bottom: 8px;
+      }
+      #rpmCanvas,
+      #spdCanvas {
+        display: block;
+      }
+      .hud-centre {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding-bottom: 10px;
+      }
+      .shift-lights {
+        display: flex;
+        gap: 4px;
+      }
+      .sl {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #111;
+        border: 1px solid #1e1e1e;
+      }
+      .gear-display {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1.5px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .gear-lbl {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 2px;
+      }
+      .gear-num {
+        font-family: "Orbitron", monospace;
+        font-size: 34px;
+        font-weight: 900;
+        line-height: 1;
+        color: #fff;
+      }
+      .info-row {
+        display: flex;
+        gap: 5px;
+      }
+      .ic {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        padding: 4px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 54px;
+        align-items: center;
+      }
+      .ic .l {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.4);
+        letter-spacing: 2px;
+      }
+      .ic .v {
+        font-family: "Orbitron", monospace;
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .ic .v.ok {
+        color: #30e080;
+      }
+      .ic .v.hot {
+        color: #ff5030;
+      }
+      .bar-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding-bottom: 10px;
+      }
+      .bar-lbl {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 2px;
+      }
+      .bar-track {
+        width: 6px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 3px;
+        position: relative;
+        overflow: hidden;
+      }
+      .bar-fill {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-radius: 3px;
+        transition: height 0.04s;
+      }
+      #rpmStrip {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        z-index: 20;
+        pointer-events: none;
+      }
+      #rpmBar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(to right, #30d080, #ffcc00, #ff3030);
+      }
+      #loadingOverlay {
+        position: absolute;
+        inset: 0;
+        background: transparent;
+        z-index: 50;
+        pointer-events: all;
+        transition: opacity 0.6s ease;
+      }
+      #pressKey {
+        position: absolute;
+        bottom: 52px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "Orbitron", monospace;
+        font-size: 15px;
+        font-weight: 700;
+        color: #00ffff;
+        letter-spacing: 4px;
+        text-shadow:
+          0 0 12px #00ffff,
+          0 0 24px #00ffff;
+        animation: blink 1.2s ease-in-out infinite;
+        pointer-events: none;
+      }
+      #loadStatus {
+        position: absolute;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 3px;
+        pointer-events: none;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.2;
+        }
+      }
+    </style>
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"
+    ></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <audio id="bgMusic" loop preload="auto">
+      <source
+        src="https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/WhatsApp%20Audio%202026-03-16%20at%208.07.43%20AM.mpeg"
+        type="audio/mpeg"
+      />
+    </audio>
+
+    <div id="rpmStrip"><div id="rpmBar"></div></div>
+    <div id="loading">LOADING VAPORWAVE MODULE...</div>
+    <div id="ui"></div>
+    <div id="scoreDisplay">0</div>
+    <div id="gameOver">
+      CRASHED!<br /><span
+        style="font-size: 24px; color: #fff; text-shadow: none"
+        >Press F5 or Refresh to Restart</span
+      >
+    </div>
+
+    <div id="loadingOverlay">
+      <div id="pressKey" style="display: none">
+        ▶ &nbsp; PRESS ANY KEY TO START
+      </div>
+      <div id="loadStatus">LOADING...</div>
+    </div>
+
+    <div id="engineHud">
+      <div class="bar-wrap">
+        <div class="bar-track">
+          <div
+            class="bar-fill"
+            id="gasFill"
+            style="
+              height: 0%;
+              background: linear-gradient(to top, #30d080, #ffcc00, #ff3030);
+            "
+          ></div>
+        </div>
+        <div class="bar-lbl">GAS</div>
+      </div>
+      <canvas id="rpmCanvas" width="160" height="160"></canvas>
+      <div class="hud-centre">
+        <div class="shift-lights">
+          <div class="sl" id="sl0"></div>
+          <div class="sl" id="sl1"></div>
+          <div class="sl" id="sl2"></div>
+          <div class="sl" id="sl3"></div>
+          <div class="sl" id="sl4"></div>
+          <div class="sl" id="sl5"></div>
+          <div class="sl" id="sl6"></div>
+          <div class="sl" id="sl7"></div>
+        </div>
+        <div class="gear-display">
+          <div class="gear-lbl">GEAR</div>
+          <div class="gear-num" id="gearNum">1</div>
+        </div>
+        <div class="info-row">
+          <div class="ic">
+            <div class="l">TEMP</div>
+            <div class="v ok" id="tempVal">90°C</div>
+          </div>
+          <div class="ic">
+            <div class="l">BOOST</div>
+            <div class="v" id="boostVal">0.00</div>
+          </div>
+          <div class="ic">
+            <div class="l">FUEL</div>
+            <div class="v ok" id="fuelVal">100%</div>
+          </div>
+        </div>
+      </div>
+      <canvas id="spdCanvas" width="160" height="160"></canvas>
+      <div class="bar-wrap">
+        <div class="bar-track">
+          <div
+            class="bar-fill"
+            id="brkFill"
+            style="
+              height: 0%;
+              background: linear-gradient(to top, #ff2020, #ff7070);
+            "
+          ></div>
+        </div>
+        <div class="bar-lbl">BRK</div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+      import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+
+      // ══════════════════════════════════════════════════════════════
+      //  COIN PICKUP SOUND
+      // ══════════════════════════════════════════════════════════════
+      let audioCtx = null;
+
+      function ensureAudioCtx() {
+        if (!audioCtx)
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+      }
+
+      function playCoinSound() {
+        ensureAudioCtx();
+        const t = audioCtx.currentTime;
+
+        const notes = [
+          { freq: 523.25, delay: 0.0, dur: 0.18 },
+          { freq: 659.25, delay: 0.07, dur: 0.22 },
+          { freq: 1046.5, delay: 0.1, dur: 0.14 },
+        ];
+
+        notes.forEach(({ freq, delay, dur }) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.value = freq;
+
+          gain.gain.setValueAtTime(0, t + delay);
+          gain.gain.linearRampToValueAtTime(0.55, t + delay + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + delay + dur);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(t + delay);
+          osc.stop(t + delay + dur + 0.05);
+        });
+
+        const shimBuf = audioCtx.createBuffer(
+          1,
+          audioCtx.sampleRate * 0.08,
+          audioCtx.sampleRate,
+        );
+        const shimData = shimBuf.getChannelData(0);
+        for (let i = 0; i < shimData.length; i++)
+          shimData[i] = Math.random() * 2 - 1;
+
+        const shimSrc = audioCtx.createBufferSource();
+        shimSrc.buffer = shimBuf;
+
+        const shimHp = audioCtx.createBiquadFilter();
+        shimHp.type = "highpass";
+        shimHp.frequency.value = 4000;
+
+        const shimGain = audioCtx.createGain();
+        shimGain.gain.setValueAtTime(0.12, t);
+        shimGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+        shimSrc.connect(shimHp);
+        shimHp.connect(shimGain);
+        shimGain.connect(audioCtx.destination);
+        shimSrc.start(t);
+        shimSrc.stop(t + 0.09);
+      }
+
+      let audioUnlocked = false;
+      function unlockAudio() {
+        if (!audioUnlocked) {
+          ensureAudioCtx();
+          audioUnlocked = true;
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      //  ENGINE SOUND  (procedural, sits quietly under the music)
+      // ══════════════════════════════════════════════════════════════
+      let engOsc1 = null,
+        engOsc2 = null,
+        engFilter = null,
+        engGain = null;
+      let engSoundStarted = false;
+
+      function startEngineSound() {
+        if (engSoundStarted) return;
+        ensureAudioCtx();
+        engSoundStarted = true;
+
+        // Layer 1 – deep sawtooth body
+        engOsc1 = audioCtx.createOscillator();
+        engOsc1.type = "sawtooth";
+        engOsc1.frequency.value = 55;
+
+        // Layer 2 – slightly detuned for roughness
+        engOsc2 = audioCtx.createOscillator();
+        engOsc2.type = "sawtooth";
+        engOsc2.frequency.value = 58;
+
+        // Lowpass to kill harsh highs and make it sound like a rumble
+        engFilter = audioCtx.createBiquadFilter();
+        engFilter.type = "lowpass";
+        engFilter.frequency.value = 420;
+        engFilter.Q.value = 1.2;
+
+        // Keep it quiet – well below music level
+        engGain = audioCtx.createGain();
+        engGain.gain.value = 0.07;
+
+        engOsc1.connect(engFilter);
+        engOsc2.connect(engFilter);
+        engFilter.connect(engGain);
+        engGain.connect(audioCtx.destination);
+
+        engOsc1.start();
+        engOsc2.start();
+      }
+
+      function updateEngineSound() {
+        if (!engSoundStarted || !engOsc1) return;
+        const t = audioCtx.currentTime;
+        // Map RPM → frequency: idle ~50 Hz, redline ~130 Hz
+        const freq = 45 + (ENG.rpm / 7500) * 85;
+        engOsc1.frequency.setTargetAtTime(freq, t, 0.08);
+        engOsc2.frequency.setTargetAtTime(freq * 1.055, t, 0.08);
+        // Throttle opens → filter brightens slightly
+        engFilter.frequency.setTargetAtTime(320 + ENG.throttle * 280, t, 0.1);
+        // Fade out to near-zero on game over
+        engGain.gain.setTargetAtTime(isGameOver ? 0.001 : 0.07, t, 0.4);
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      //  SCENE & RENDERER
+      // ══════════════════════════════════════════════════════════════
+      const scene = new THREE.Scene();
+
+      scene.background = new THREE.Color(0x000010); // deep space, overridden by sky sphere
+      scene.fog = new THREE.FogExp2(0x1a0000, 0.0035);
+      scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
+      dirLight.position.set(100, 100, 50);
+      scene.add(dirLight);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        innerWidth / innerHeight,
+        0.1,
+        5000,
+      );
+      camera.position.set(17.421, 2.273, 0.213);
+      camera.lookAt(170.94, 0.0, 0.0);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ReinhardToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.setClearColor(0x000000, 0); // transparent clear so sky shows
+      renderer.domElement.classList.add("three");
+      document.body.appendChild(renderer.domElement);
+
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(innerWidth / 2, innerHeight / 2),
+        0.55,
+        0.7,
+        0.22,
+      );
+      composer.addPass(bloomPass);
+
+      // ══════════════════════════════════════════════════════════════
+      //  LOADING SCENE
+      // ══════════════════════════════════════════════════════════════
+      const loadingScene = new THREE.Scene();
+      loadingScene.background = new THREE.Color(0x050505);
+
+      const loadingCamera = new THREE.PerspectiveCamera(
+        50,
+        innerWidth / innerHeight,
+        0.1,
+        500,
+      );
+      loadingCamera.position.set(0, 0, 20);
+      loadingCamera.lookAt(0, 0, 0);
+
+      const loadingWrapper = new THREE.Group();
+      loadingScene.add(loadingWrapper);
+
+      let loadingMixer = null;
+      let loadingClock = new THREE.Clock();
+      let loadingLoopId = null;
+
+      // ══════════════════════════════════════════════════════════════
+      //  GAME STATE
+      // ══════════════════════════════════════════════════════════════
+      let isGameOver = false,
+        score = 0,
+        playerCar = null;
+      const carWheels = [];
+      const roadGroup = new THREE.Group();
+      scene.add(roadGroup);
+      const bgGroup = new THREE.Group();
+      scene.add(bgGroup);
+      let roadLength = 0,
+        bgLength = 0;
+
+      const GAME_SPEED = 3.5,
+        STEER_SPEED = 0.4,
+        ROAD_BOUNDARY = 2.5,
+        WHEEL_SPIN = 0.3;
+      const LANES = [-2.2, 0, 2.2];
+      const OBS_MIN = 35,
+        OBS_MAX = 90,
+        COIN_INTERVAL = 55;
+      let obsTimer = 0,
+        nextObsIn = 60,
+        coinTimer = 30;
+      const HIT_X_MIN = 18.0,
+        HIT_X_MAX = 26.0,
+        HIT_Z_TOL = 1.4;
+
+      const keys = { left: false, right: false };
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a")
+          keys.left = true;
+        if (e.key === "ArrowRight" || e.key.toLowerCase() === "d")
+          keys.right = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a")
+          keys.left = false;
+        if (e.key === "ArrowRight" || e.key.toLowerCase() === "d")
+          keys.right = false;
+      });
+
+      function freezeMath(o) {
+        o.matrixAutoUpdate = false;
+        o.updateMatrix();
+        o.traverse((c) => {
+          if (c.isMesh) {
+            c.matrixAutoUpdate = false;
+            c.updateMatrix();
+          }
+        });
+      }
+      function makePool(n, fn) {
+        const it = [],
+          fr = [];
+        for (let i = 0; i < n; i++) {
+          const o = fn();
+          o.userData.poolIdx = i;
+          o.userData.active = false;
+          o.visible = false;
+          scene.add(o);
+          it.push(o);
+          fr.push(i);
+        }
+        return {
+          it,
+          fr,
+          acquire() {
+            if (!fr.length) return null;
+            const o = it[fr.pop()];
+            o.userData.active = true;
+            o.visible = true;
+            return o;
+          },
+          release(o) {
+            o.userData.active = false;
+            o.visible = false;
+            fr.push(o.userData.poolIdx);
+          },
+        };
+      }
+      const activeObs = [],
+        activeCoins = [];
+      function swapRemove(a, x) {
+        const i = a.indexOf(x);
+        if (i < 0) return;
+        a[i] = a[a.length - 1];
+        a.pop();
+      }
+      let obsPool = null,
+        coinPool = null;
+
+      // ══════════════════════════════════════════════════════════════
+      //  SOFT TEXTURE HELPER
+      // ══════════════════════════════════════════════════════════════
+      const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+
+      function softifyMesh(obj) {
+        obj.traverse((c) => {
+          if (!c.isMesh) return;
+          if (c.geometry) {
+            c.geometry.computeVertexNormals();
+          }
+          const mats = Array.isArray(c.material) ? c.material : [c.material];
+          mats.forEach((m) => {
+            if (!m) return;
+            m.flatShading = false;
+            if (m.roughness !== undefined)
+              m.roughness = Math.min(1.0, (m.roughness || 0.5) * 1.6 + 0.25);
+            if (m.metalness !== undefined)
+              m.metalness = Math.max(0.0, (m.metalness || 0.5) * 0.6);
+            const texSlots = [
+              "map",
+              "normalMap",
+              "roughnessMap",
+              "metalnessMap",
+              "aoMap",
+              "emissiveMap",
+              "envMap",
+              "lightMap",
+            ];
+            texSlots.forEach((slot) => {
+              const tex = m[slot];
+              if (!tex) return;
+              tex.minFilter = THREE.LinearMipmapLinearFilter;
+              tex.magFilter = THREE.LinearFilter;
+              tex.anisotropy = MAX_ANISO;
+              tex.needsUpdate = true;
+            });
+            m.needsUpdate = true;
+          });
+        });
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      //  HUD ENGINE STATE
+      // ══════════════════════════════════════════════════════════════
+      const ENG = {
+        rpm: 2200,
+        speed: 0,
+        gear: 1,
+        throttle: 0.85,
+        brake: 0,
+        fuel: 100,
+      };
+      const ENG_REDLINE = 6800,
+        ENG_MAX_RPM = 7500,
+        ENG_MAX_SPD = 320;
+      const GEAR_SPEEDS = [35, 60, 90, 130, 175, 320];
+      let prevTime = performance.now();
+
+      function updateEngineHUDState(dt) {
+        const st = keys.left || keys.right;
+        ENG.throttle = isGameOver ? 0 : st ? 0.42 : 0.88;
+        ENG.brake = isGameOver ? 0.9 : 0;
+        const ts = isGameOver ? 0 : st ? 108 : 122;
+        ENG.speed += (ts - ENG.speed) * dt * 1.4;
+        ENG.gear = 1;
+        for (let g = 0; g < GEAR_SPEEDS.length; g++) {
+          if (ENG.speed <= GEAR_SPEEDS[g]) {
+            ENG.gear = g + 1;
+            break;
+          }
+        }
+        const targetRpm = isGameOver
+          ? 400
+          : st
+            ? 2200
+            : 4000 + Math.sin(prevTime * 0.001) * 200;
+        ENG.rpm += (targetRpm - ENG.rpm) * dt * 3;
+        ENG.fuel = Math.max(0, ENG.fuel - ENG.throttle * dt * 0.03);
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      //  MODELS
+      // ══════════════════════════════════════════════════════════════
+      const loader = new GLTFLoader();
+
+      let modelsLoaded = 0;
+      let gameModelsReady = false;
+      let gameStarted = false;
+
+      function onML() {
+        modelsLoaded++;
+        if (modelsLoaded >= 5) {
+          gameModelsReady = true;
+          document.getElementById("loadStatus").style.display = "none";
+          document.getElementById("pressKey").style.display = "block";
+        }
+      }
+
+      // Loader 1: Loading Screen Rings (Not counted towards game models)
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/loading.glb",
+        (gltf) => {
+          let loadingModel = gltf.scene;
+
+          const bb = new THREE.Box3().setFromObject(loadingModel);
+          const center = new THREE.Vector3();
+          bb.getCenter(center);
+          loadingModel.position.set(-center.x, -center.y, -center.z);
+
+          loadingWrapper.position.set(0, 0, 0);
+          loadingWrapper.rotation.set(1.52819, 0.08318, 3.0529);
+          loadingWrapper.scale.set(4.3026, 4.3026, 4.3026);
+
+          loadingModel.traverse((c) => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.15,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+              });
+            }
+          });
+
+          loadingWrapper.add(loadingModel);
+
+          if (gltf.animations && gltf.animations.length > 0) {
+            loadingMixer = new THREE.AnimationMixer(loadingModel);
+            gltf.animations.forEach((clip) => {
+              loadingMixer.clipAction(clip).play();
+            });
+          }
+        },
+      );
+
+      // Loader 2: Background (Calls onML #1)
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/80s_style.glb",
+        (gltf) => {
+          const b = gltf.scene;
+          b.traverse((c) => {
+            if (c.isMesh && c.material) {
+              c.material.color.setHex(0x000000);
+              if (c.material.emissive) c.material.emissiveIntensity = 1.8;
+              c.material.needsUpdate = true;
+            }
+          });
+          softifyMesh(b);
+          const bb = new THREE.Box3().setFromObject(b);
+          bgLength = bb.max.x - bb.min.x - 35;
+          const sun = b.clone();
+          sun.traverse((c) => {
+            if (c.isMesh) {
+              const s =
+                c.material?.emissive?.r > 0.5 &&
+                c.material.emissive.r > c.material.emissive.b;
+              if (!s) c.visible = false;
+            }
+          });
+          // Boost emissive on the sun so the bloom pass catches it strongly
+          sun.traverse((c) => {
+            if (c.isMesh && c.material?.emissive) {
+              c.material.emissiveIntensity = 6.0;
+              c.material.needsUpdate = true;
+            }
+          });
+          freezeMath(sun);
+          scene.add(sun);
+          const mtn = b.clone();
+          mtn.traverse((c) => {
+            if (c.isMesh) {
+              const s =
+                c.material?.emissive?.r > 0.5 &&
+                c.material.emissive.r > c.material.emissive.b;
+              if (s) c.visible = false;
+            }
+          });
+          for (let i = 0; i < 11; i++) {
+            const cl = mtn.clone();
+            cl.position.x = mtn.position.x + bgLength * i;
+            freezeMath(cl);
+            bgGroup.add(cl);
+          }
+          onML();
+        },
+      );
+
+      // Loader 3: Road (Calls onML #2)
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/road.glb",
+        (gltf) => {
+          const b = gltf.scene;
+          b.position.set(31, 0.3233409, 0.024127);
+          b.scale.set(1.3794383, 0, 0.4209086);
+          softifyMesh(b);
+          const bb = new THREE.Box3().setFromObject(b);
+          roadLength = bb.max.x - bb.min.x;
+          for (let i = 0; i < 22; i++) {
+            const cl = b.clone();
+            cl.position.x = b.position.x + roadLength * i;
+            freezeMath(cl);
+            roadGroup.add(cl);
+          }
+          onML();
+        },
+      );
+
+      // Loader 4: Car & Wings (Calls onML #3)
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/2023_w_motors_lykan_hypersport_neon_edition.glb",
+        (gltf) => {
+          playerCar = gltf.scene;
+          playerCar.position.set(23, 0.3310553, 0.1879077);
+          playerCar.rotation.set(-1.9771708, 1.5574823, 1.977203);
+          playerCar.scale.set(0.7, 0.7, 0.7);
+          playerCar.traverse((c) => {
+            const n = c.name.toLowerCase();
+            if (
+              n.includes("wheel") ||
+              n.includes("tire") ||
+              n.includes("tyre") ||
+              n.includes("rim") ||
+              n.includes("alloy") ||
+              n.includes("disc") ||
+              n.includes("spoke")
+            )
+              carWheels.push(c);
+            if (c.isMesh && c.material) {
+              if (!c.material.emissive)
+                c.material.emissive = new THREE.Color(0x00ffff);
+              c.material.emissiveIntensity = 0.6;
+              c.material.needsUpdate = true;
+            }
+          });
+          softifyMesh(playerCar);
+          scene.add(playerCar);
+
+          loader.load(
+            "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/angel_wings_led_neon_sign.glb",
+            (wingGltf) => {
+              window.angelWings = wingGltf.scene;
+
+              window.angelWings.traverse((c) => {
+                if (c.isMesh) {
+                  // MeshBasicMaterial: pure white, unlit, completely invisible to bloom
+                  c.material = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.82,
+                    depthWrite: false,
+                    side: THREE.DoubleSide,
+                  });
+                }
+              });
+
+              window.angelWings.scale.set(0.413, 0.413, 0.413);
+              window.angelWings.position.set(1.745, 1.991, 0.658);
+              window.angelWings.rotation.set(0, 0, 0);
+
+              playerCar.add(window.angelWings);
+
+              onML();
+            },
+          );
+        },
+      );
+
+      // Loader 5: Obstacles (Calls onML #4)
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/xxx_neon_sign.glb",
+        (gltf) => {
+          const t = gltf.scene;
+          t.rotation.set(0, 1.4950975, 0);
+          t.scale.set(0.0089397, 0.0102117, 0.112251);
+          t.traverse((c) => {
+            if (c.isMesh && c.material) {
+              if (!c.material.emissive)
+                c.material.emissive = new THREE.Color(0xff0055);
+              c.material.emissiveIntensity = 2.5;
+              c.material.needsUpdate = true;
+            }
+          });
+          softifyMesh(t);
+          obsPool = makePool(12, () => t.clone());
+          onML();
+        },
+      );
+
+      // Loader 6: Coins (Calls onML #5)
+      (function () {
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x00ff44,
+          emissive: 0x00ff44,
+          emissiveIntensity: 2.0,
+          metalness: 0.2,
+          roughness: 0.7,
+        });
+        function mk() {
+          const g = new THREE.Group();
+          const t = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.6, 16), mat);
+          t.position.y = 0.3;
+          g.add(t);
+          const b = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.35, 16), mat);
+          b.rotation.z = Math.PI;
+          b.position.y = -0.175;
+          g.add(b);
+          return g;
+        }
+        coinPool = makePool(60, mk);
+        onML();
+      })();
+
+      // ══════════════════════════════════════════════════════════════
+      //  SKY – Milkyway panorama  (does NOT count toward onML)
+      // ══════════════════════════════════════════════════════════════
+      let skyMesh = null;
+      loader.load(
+        "https://raw.githubusercontent.com/kvsathyaprakashcambridge-pixel/my-game-models/main/sky_pano_-_milkyway.glb",
+        (gltf) => {
+          const sky = gltf.scene;
+
+          // Collect every texture found in the model
+          const textures = [];
+          sky.traverse((c) => {
+            if (!c.isMesh) return;
+            const mats = Array.isArray(c.material) ? c.material : [c.material];
+            mats.forEach((m) => {
+              if (!m) return;
+              ["map", "emissiveMap"].forEach((slot) => {
+                if (m[slot]) textures.push(m[slot]);
+              });
+            });
+          });
+
+          // Build a giant sphere and texture it with whatever the GLB carries
+          const skyGeo = new THREE.SphereGeometry(4000, 64, 32);
+          const skyMat = new THREE.MeshBasicMaterial({
+            map: textures.length ? textures[0] : null,
+            color: textures.length ? 0xffffff : 0x000020,
+            side: THREE.BackSide, // render inside surface
+            fog: false,
+          });
+          const skySphere = new THREE.Mesh(skyGeo, skyMat);
+          skySphere.position.set(23, 0, 0);
+          scene.add(skySphere);
+          skyMesh = skySphere;
+        },
+        undefined,
+        () => {
+          // Fallback if GLB fails: plain dark-blue sky with stars
+          const skyGeo = new THREE.SphereGeometry(4000, 32, 16);
+          const skyMat = new THREE.MeshBasicMaterial({
+            color: 0x000020,
+            side: THREE.BackSide,
+            fog: false,
+          });
+          const skySphere = new THREE.Mesh(skyGeo, skyMat);
+          skySphere.position.set(23, 0, 0);
+          scene.add(skySphere);
+          skyMesh = skySphere;
+        },
+      );
+
+      function spawnObstacle() {
+        if (!obsPool) return;
+        const roll = Math.random();
+        const pl = playerCar
+          ? LANES.reduce(
+              (c, l) =>
+                Math.abs(l - playerCar.position.z) <
+                Math.abs(c - playerCar.position.z)
+                  ? l
+                  : c,
+              LANES[0],
+            )
+          : LANES[1];
+        if (roll < 0.3) {
+          const o = obsPool.acquire();
+          if (!o) return;
+          o.position.set(500, 1.2962298, LANES[Math.floor(Math.random() * 3)]);
+          activeObs.push(o);
+        } else if (roll < 0.6) {
+          const o = obsPool.acquire();
+          if (!o) return;
+          o.position.set(500, 1.2962298, pl);
+          activeObs.push(o);
+        } else if (roll < 0.8) {
+          const ot = LANES.filter((l) => l !== pl);
+          [pl, ot[Math.floor(Math.random() * ot.length)]].forEach((ln) => {
+            const o = obsPool.acquire();
+            if (o) {
+              o.position.set(500, 1.2962298, ln);
+              activeObs.push(o);
+            }
+          });
+        } else {
+          [...LANES]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 2)
+            .forEach((ln) => {
+              const o = obsPool.acquire();
+              if (o) {
+                o.position.set(500, 1.2962298, ln);
+                activeObs.push(o);
+              }
+            });
+        }
+      }
+      function spawnCoinCluster() {
+        if (!coinPool) return;
+        const r = Math.random();
+        const lanes =
+          r < 0.5
+            ? [LANES[Math.floor(Math.random() * 3)]]
+            : r < 0.8
+              ? [...LANES].sort(() => Math.random() - 0.5).slice(0, 2)
+              : [...LANES];
+        for (const ln of lanes)
+          for (let i = 0; i < Math.floor(Math.random() * 3) + 3; i++) {
+            const c = coinPool.acquire();
+            if (!c) break;
+            c.position.set(500 + i * 12, 0.75, ln);
+            activeCoins.push(c);
+          }
+      }
+      // ══════════════════════════════════════════════════════════════
+      //  GAUGES
+      // ══════════════════════════════════════════════════════════════
+      const A0 = Math.PI * 0.75,
+        SW = Math.PI * 1.5;
+      function drawGauge(cv, val, max, unit, redFrom) {
+        const c = cv.getContext("2d"),
+          W = cv.width,
+          cx = W / 2,
+          cy = W / 2 + 6,
+          R = W * 0.43;
+        c.clearRect(0, 0, W, W);
+        c.beginPath();
+        c.arc(cx, cy, R, 0, Math.PI * 2);
+        c.fillStyle = "rgba(255,255,255,0.18)";
+        c.fill();
+        c.strokeStyle = "rgba(255,255,255,0.35)";
+        c.lineWidth = 1.5;
+        c.stroke();
+        c.beginPath();
+        c.arc(cx, cy, R * 0.81, A0, A0 + SW);
+        c.strokeStyle = "rgba(255,255,255,0.12)";
+        c.lineWidth = 6;
+        c.lineCap = "butt";
+        c.stroke();
+        c.beginPath();
+        c.arc(cx, cy, R * 0.81, A0 + (redFrom / max) * SW, A0 + SW);
+        c.strokeStyle = "rgba(255,40,40,0.25)";
+        c.lineWidth = 6;
+        c.stroke();
+        const pg = c.createLinearGradient(cx - R, cy, cx + R, cy);
+        pg.addColorStop(0, "#20a060");
+        pg.addColorStop(0.55, "#c8a010");
+        pg.addColorStop(1, "#ff2020");
+        c.beginPath();
+        c.arc(cx, cy, R * 0.81, A0, A0 + Math.min(1, val / max) * SW);
+        c.strokeStyle = pg;
+        c.lineWidth = 4;
+        c.lineCap = "round";
+        c.stroke();
+        for (let i = 0; i <= 40; i++) {
+          const a = A0 + (i / 40) * SW,
+            mj = i % 5 === 0,
+            ln = mj ? 8 : 4,
+            r1 = R * 0.88,
+            r2 = r1 - ln;
+          c.beginPath();
+          c.moveTo(cx + r1 * Math.cos(a), cy + r1 * Math.sin(a));
+          c.lineTo(cx + r2 * Math.cos(a), cy + r2 * Math.sin(a));
+          c.strokeStyle = mj
+            ? "rgba(255,255,255,0.6)"
+            : "rgba(255,255,255,0.2)";
+          c.lineWidth = mj ? 1.2 : 0.7;
+          c.stroke();
+        }
+        c.font = '7px "Share Tech Mono",monospace';
+        c.fillStyle = "rgba(255,255,255,0.7)";
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        for (let i = 0; i <= 8; i++) {
+          const a = A0 + (i / 8) * SW,
+            r = R * 0.69,
+            lv = (max / 8) * i,
+            d = max >= 1000 ? Math.round(lv / 1000) : Math.round(lv);
+          c.fillText(d, cx + r * Math.cos(a), cy + r * Math.sin(a));
+        }
+        const na = A0 + Math.min(1, val / max) * SW;
+        c.save();
+        c.translate(cx, cy);
+        c.rotate(na);
+        const ng = c.createLinearGradient(-8, 0, R * 0.77, 0);
+        ng.addColorStop(0, "rgba(255,255,255,0.1)");
+        ng.addColorStop(0.2, "#fff");
+        ng.addColorStop(1, "#ff4040");
+        c.beginPath();
+        c.moveTo(-8, 0);
+        c.lineTo(R * 0.77, 0);
+        c.strokeStyle = ng;
+        c.lineWidth = 1.5;
+        c.lineCap = "round";
+        c.stroke();
+        c.restore();
+        c.beginPath();
+        c.arc(cx, cy, 5, 0, Math.PI * 2);
+        c.fillStyle = "rgba(255,255,255,0.15)";
+        c.fill();
+        c.strokeStyle = "rgba(255,255,255,0.4)";
+        c.lineWidth = 1;
+        c.stroke();
+        c.beginPath();
+        c.arc(cx, cy, 2, 0, Math.PI * 2);
+        c.fillStyle = "#ff3030";
+        c.fill();
+        c.font = '7px "Share Tech Mono",monospace';
+        c.fillStyle = "rgba(255,255,255,0.5)";
+        c.textAlign = "center";
+        c.fillText(unit, cx, cy + R * 0.5);
+        c.font = '700 11px "Orbitron",monospace';
+        c.fillStyle = "rgba(255,255,255,0.9)";
+        c.fillText(Math.round(val).toLocaleString(), cx, cy + R * 0.63);
+      }
+
+      function updateHUD() {
+        drawGauge(
+          document.getElementById("rpmCanvas"),
+          ENG.rpm,
+          ENG_MAX_RPM,
+          "RPM ×1k",
+          ENG_REDLINE,
+        );
+        drawGauge(
+          document.getElementById("spdCanvas"),
+          ENG.speed,
+          ENG_MAX_SPD,
+          "KM/H",
+          200,
+        );
+        document.getElementById("gearNum").textContent = ENG.gear;
+        document.getElementById("gasFill").style.height =
+          ENG.throttle * 100 + "%";
+        document.getElementById("brkFill").style.height = ENG.brake * 100 + "%";
+        document.getElementById("rpmBar").style.width =
+          (ENG.rpm / ENG_MAX_RPM) * 100 + "%";
+        const temp = 88 + ENG.throttle * 22 + (ENG.speed / ENG_MAX_SPD) * 5;
+        const tEl = document.getElementById("tempVal");
+        tEl.textContent = Math.round(temp) + "°C";
+        tEl.className = "v " + (temp > 105 ? "hot" : "ok");
+        const boost = Math.max(
+          0,
+          (ENG.throttle * (ENG.rpm / ENG_REDLINE) - 0.3) * 1.6,
+        );
+        document.getElementById("boostVal").textContent =
+          boost.toFixed(2) + "B";
+        const fEl = document.getElementById("fuelVal");
+        fEl.textContent = Math.round(ENG.fuel) + "%";
+        fEl.className = "v " + (ENG.fuel < 20 ? "hot" : "ok");
+        const ratio = ENG.rpm / ENG_REDLINE;
+        for (let i = 0; i < 8; i++) {
+          const el = document.getElementById("sl" + i);
+          el.className = "sl";
+          if (ratio >= 0.72 + i * 0.036) {
+            el.style.background =
+              i < 3 ? "#00ff55" : i < 6 ? "#ffcc00" : "#ff2020";
+            el.style.boxShadow = `0 0 6px ${i < 3 ? "#00ff55" : i < 6 ? "#ffcc00" : "#ff2020"}`;
+          } else {
+            el.style.background = "#111";
+            el.style.boxShadow = "none";
+          }
+        }
+      }
+      // ══════════════════════════════════════════════════════════════
+      //  LOADING ANIMATION LOOP
+      // ══════════════════════════════════════════════════════════════
+      function loadingLoop() {
+        loadingLoopId = requestAnimationFrame(loadingLoop);
+        const dt = loadingClock.getDelta();
+        if (loadingMixer) loadingMixer.update(dt);
+
+        // This is the fix that makes the loading screen render perfectly without crashing!
+        renderer.render(loadingScene, loadingCamera);
+      }
+
+      loadingLoop();
+
+      // ── Start game on gesture ─────────────────────────────────────
+      function onStart() {
+        if (gameStarted) return;
+        if (!gameModelsReady) {
+          document.getElementById("loadStatus").textContent =
+            "STILL LOADING...";
+          window.addEventListener("keydown", onStart, { once: true });
+          return;
+        }
+
+        gameStarted = true;
+        unlockAudio();
+        cancelAnimationFrame(loadingLoopId);
+
+        const overlay = document.getElementById("loadingOverlay");
+        overlay.style.opacity = "0";
+        overlay.style.pointerEvents = "none";
+
+        setTimeout(() => {
+          overlay.style.display = "none";
+          loadingScene.clear();
+        }, 620);
+
+        document.getElementById("scoreDisplay").style.display = "block";
+        document.getElementById("engineHud").style.display = "flex";
+
+        const bgMusic = document.getElementById("bgMusic");
+        bgMusic.volume = 0.6;
+        bgMusic.play().catch(() => {});
+
+        startEngineSound();
+
+        animate();
+      }
+
+      document
+        .getElementById("loadingOverlay")
+        .addEventListener("click", onStart);
+      window.addEventListener("keydown", onStart, { once: true });
+
+      // ══════════════════════════════════════════════════════════════
+      //  MAIN GAME LOOP
+      // ══════════════════════════════════════════════════════════════
+      const scoreEl = document.getElementById("scoreDisplay");
+      let wingTimer = 0; // Timer for making wings vanish
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const now = performance.now();
+        const dt = Math.min((now - prevTime) / 1000, 0.05);
+        prevTime = now;
+
+        updateEngineHUDState(dt);
+        updateHUD();
+        updateEngineSound();
+
+        if (isGameOver) {
+          composer.render();
+          return;
+        }
+
+        // --- ANGEL WING VANISHING LOGIC ---
+        if (window.angelWings && window.angelWings.visible) {
+          wingTimer += dt;
+          if (wingTimer > 5.0) {
+            window.angelWings.visible = false; // Completely gone after 5 sec
+          } else if (wingTimer > 3.0) {
+            // Fade out smoothly between 3s and 5s
+            const alpha = 1.0 - (wingTimer - 3.0) / 2.0;
+            window.angelWings.traverse((c) => {
+              if (c.isMesh && c.material) {
+                c.material.opacity = 0.3 * Math.max(0, alpha);
+              }
+            });
+          }
+        }
+
+        if (roadLength > 0) {
+          roadGroup.position.x -= GAME_SPEED;
+          if (roadGroup.position.x <= -roadLength) roadGroup.position.x = 0;
+        }
+        if (bgLength > 0) {
+          bgGroup.position.x -= GAME_SPEED;
+          if (bgGroup.position.x <= -bgLength) bgGroup.position.x = 0;
+        }
+
+        // Gently rotate the sky so the milkyway slowly drifts overhead
+        if (skyMesh) skyMesh.rotation.y += dt * 0.008;
+
+        if (++obsTimer >= nextObsIn) {
+          spawnObstacle();
+          obsTimer = 0;
+          nextObsIn =
+            Math.floor(Math.random() * (OBS_MAX - OBS_MIN + 1)) + OBS_MIN;
+        }
+        if (++coinTimer >= COIN_INTERVAL) {
+          spawnCoinCluster();
+          coinTimer = 0;
+        }
+
+        for (let i = activeObs.length - 1; i >= 0; i--) {
+          const obs = activeObs[i];
+          obs.position.x -= GAME_SPEED;
+          if (
+            obs.position.x > HIT_X_MIN &&
+            obs.position.x < HIT_X_MAX &&
+            playerCar &&
+            Math.abs(playerCar.position.z - obs.position.z) < HIT_Z_TOL
+          ) {
+            isGameOver = true;
+            document.getElementById("gameOver").style.display = "block";
+          }
+          if (obs.position.x < 0) {
+            obsPool.release(obs);
+            swapRemove(activeObs, obs);
+          }
+        }
+
+        for (let i = activeCoins.length - 1; i >= 0; i--) {
+          const coin = activeCoins[i];
+          coin.position.x -= GAME_SPEED;
+          coin.rotateY(0.05);
+          if (
+            coin.position.x > HIT_X_MIN &&
+            coin.position.x < HIT_X_MAX &&
+            playerCar &&
+            Math.abs(playerCar.position.z - coin.position.z) < HIT_Z_TOL
+          ) {
+            score++;
+            scoreEl.innerText = score;
+            playCoinSound();
+            coinPool.release(coin);
+            swapRemove(activeCoins, coin);
+            continue;
+          }
+          if (coin.position.x < 0) {
+            coinPool.release(coin);
+            swapRemove(activeCoins, coin);
+          }
+        }
+
+        if (playerCar) {
+          if (keys.left) playerCar.position.z -= STEER_SPEED;
+          if (keys.right) playerCar.position.z += STEER_SPEED;
+          playerCar.position.z = Math.max(
+            -ROAD_BOUNDARY,
+            Math.min(ROAD_BOUNDARY, playerCar.position.z),
+          );
+        }
+        for (let i = 0; i < carWheels.length; i++)
+          carWheels[i].rotateX(-WHEEL_SPIN);
+
+        composer.render();
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+        composer.setSize(innerWidth, innerHeight);
+        bloomPass.resolution.set(innerWidth / 2, innerHeight / 2);
+      });
+    </script>
+  </body>
+</html>
